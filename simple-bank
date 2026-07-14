@@ -1,0 +1,173 @@
+const readline = require("readline");
+
+class BankAccount {
+    #balance;
+    #pin;
+
+    constructor(customerName, initialBalance = 0, secretPin) {
+        this.customerName = customerName;
+        this.#balance = initialBalance;
+        this.#pin = secretPin;
+        this.isActive = true;
+    }
+
+    verifyPin(inputPin) {
+        return this.#pin === inputPin;
+    }
+
+    getBalance() {
+        return this.#balance;
+    }
+
+    deposit(amount) {
+        if (isNaN(amount) || amount <= 0) return false;
+
+        this.#balance += amount;
+        return true;
+    }
+
+    withdraw(amount) {
+        if (isNaN(amount) || amount <= 0 || amount > this.#balance)
+            return false;
+
+        this.#balance -= amount;
+        return true;
+    }
+}
+
+class BankTerminal {
+    constructor() {
+        this.account = null;
+        this.rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+        });
+    }
+
+    ask(question) {
+        return new Promise((resolve) => this.rl.question(question, resolve));
+    }
+
+    async start() {
+        console.log("=================================");
+        console.log("  WELCOME TO METRO DIGITAL BANK");
+        console.log("=================================\n");
+
+        const name = await this.ask("Enter Customer Name: ");
+
+        let deposit = Number(
+            await this.ask("Enter Initial Deposit Amount ($): ")
+        );
+
+        if (isNaN(deposit) || deposit < 0) {
+            deposit = 0;
+            console.log("Invalid amount entered. Initial balance set to $0.");
+        }
+
+        let pin;
+        while (true) {
+            pin = await this.ask("Set your 4-digit Secret PIN: ");
+
+            if (/^\d{4}$/.test(pin)) {
+                break;
+            }
+
+            console.log("PIN must be exactly 4 digits.\n");
+        }
+
+        this.account = new BankAccount(name, deposit, pin);
+
+        console.log(`\n✅ Account successfully created for ${name}!\n`);
+
+        await this.mainMenu();
+    }
+
+    async mainMenu() {
+        while (true) {
+            console.log("\n========== MAIN MENU ==========");
+            console.log("1. View Balance");
+            console.log("2. Deposit Funds");
+            console.log("3. Withdraw Funds");
+            console.log("4. Exit");
+
+            const choice = await this.ask("Select an option (1-4): ");
+
+            if (choice === "4") {
+                console.log("\nThank you for banking with us. Goodbye!");
+                this.rl.close();
+                break;
+            }
+
+            await this.handleAction(choice);
+        }
+    }
+
+    async handleAction(choice) {
+        if (!["1", "2", "3"].includes(choice)) {
+            console.log("\n❌ Invalid menu option.");
+            return;
+        }
+
+        const inputPin = await this.ask("Enter your Secret PIN: ");
+
+        if (!this.account.verifyPin(inputPin)) {
+            console.log("\n❌ ERROR: Invalid PIN. Authorization Denied.");
+            return;
+        }
+
+        switch (choice) {
+            case "1":
+                console.log(
+                    `\n💰 Current Balance: $${this.account.getBalance().toFixed(
+                        2
+                    )}`
+                );
+                break;
+
+            case "2":
+                const depAmount = Number(
+                    await this.ask("Enter amount to deposit ($): ")
+                );
+
+                if (this.account.deposit(depAmount)) {
+                    console.log(
+                        `\n✅ Successfully deposited $${depAmount.toFixed(2)}`
+                    );
+                    console.log(
+                        `New Balance: $${this.account
+                            .getBalance()
+                            .toFixed(2)}`
+                    );
+                } else {
+                    console.log("\n❌ Invalid deposit amount.");
+                }
+                break;
+
+            case "3":
+                const withdrawAmount = Number(
+                    await this.ask("Enter amount to withdraw ($): ")
+                );
+
+                if (this.account.withdraw(withdrawAmount)) {
+                    console.log(
+                        `\n✅ Successfully withdrew $${withdrawAmount.toFixed(
+                            2
+                        )}`
+                    );
+                    console.log(
+                        `Remaining Balance: $${this.account
+                            .getBalance()
+                            .toFixed(2)}`
+                    );
+                } else {
+                    console.log(
+                        "\n❌ Insufficient funds or invalid withdrawal amount."
+                    );
+                }
+                break;
+        }
+    }
+}
+
+const terminal = new BankTerminal();
+terminal.start();
